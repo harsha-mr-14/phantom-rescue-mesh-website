@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Phantom Rescue Mesh</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+
+<style>
+body {
+    margin: 0;
+    font-family: 'Segoe UI';
+    background: #0b1c2c;
+    color: white;
+}
+
+/* HEADER */
+.header {
+    display: flex;0
+    justify-content: space-between;
+    padding: 20px;
+    font-size: 26px;
+    font-weight: bold;
+}
+.header span:nth-child(1){color:white;}
+.header span:nth-child(2){color:red;}
+.header span:nth-child(3){color:#00ff88;}
+
+.badge {
+    background: rgba(0,255,136,0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 14px;
+}
+
+/* LAYOUT */
+.container {
+    display: flex;
+    gap: 20px;
+    padding: 20px;
+}
+
+.left, .right {
+    flex: 1;
+}
+
+/* CARDS */
+.card {
+    background: #112b3c;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+}
+
+/* SOS BUTTON */
+.sos-btn {
+    width: 140px;
+    height: 140px;
+    border-radius: 50%;
+    background: red;
+    border: none;
+    color: white;
+    font-size: 24px;
+    display: block;
+    margin: auto;
+    cursor: pointer;
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% {box-shadow:0 0 0 0 rgba(255,0,0,0.6);}
+    70% {box-shadow:0 0 0 30px rgba(255,0,0,0);}
+}
+
+/* INPUT */
+#message {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: none;
+    margin-top: 10px;
+}
+
+/* ALERT LIST */
+#alerts div {
+    background: #1c3b52;
+    padding: 10px;
+    margin: 8px 0;
+    border-radius: 8px;
+}
+
+/* MAP */
+#map {
+    height: 400px;
+    border-radius: 10px;
+}
+
+/* STATS */
+.stats {
+    display: flex;
+    gap: 10px;
+}
+.stat {
+    flex:1;
+    background:#1c3b52;
+    padding:10px;
+    border-radius:10px;
+    text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<!-- HEADER -->
+<div class="header">
+    <div>
+        <span>PHANTOM </span>
+        <span>RESCUE </span>
+        <span>MESH</span>
+    </div>
+    <div class="badge">Live System Active</div>
+</div>
+
+<div class="container">
+
+    <!-- LEFT SIDE -->
+    <div class="left">
+
+        <div class="card">
+            <button class="sos-btn" onclick="sendSOS()">SOS</button>
+            <div id="status" style="text-align:center;margin-top:10px;"></div>
+
+            <input type="text" id="message" placeholder="Enter emergency message...">
+        </div>
+
+        <div class="card">
+            <h3>Live Alerts</h3>
+            <div id="alerts"></div>
+        </div>
+
+    </div>
+
+    <!-- RIGHT SIDE -->
+    <div class="right">
+
+        <div class="stats">
+            <div class="stat">Alerts<br><span id="count">0</span></div>
+            <div class="stat">Status<br>Active</div>
+            <div class="stat">GPS<br>ON</div>
+        </div>
+
+        <div class="card">
+            <h3>Live Map</h3>
+            <div id="map"></div>
+        </div>
+
+    </div>
+
+</div>
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<!-- Leaflet -->
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+
+<script>
+var firebaseConfig = {
+    apiKey: "AIzaSyBXlminyupcYrgHmYIgQcIDI9bDURu6T-o",
+    authDomain: "phantom-rescue.firebaseapp.com",
+    databaseURL: "https://phantom-rescue-default-rtdb.firebaseio.com/",
+    projectId: "phantom-rescue"
+};
+firebase.initializeApp(firebaseConfig);
+var db = firebase.database();
+
+/* MAP */
+var map = L.map('map').setView([17.38,78.48],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+
+/* SEND SOS */
+function sendSOS(){
+    navigator.geolocation.getCurrentPosition(function(pos){
+
+        var lat = pos.coords.latitude;
+        var lon = pos.coords.longitude;
+        var msg = document.getElementById("message").value || "No message";
+
+        var data = {
+            lat:lat,
+            lon:lon,
+            message:msg,
+            time:new Date().toLocaleString()
+        };
+
+        db.ref("alerts").push(data);
+
+        alert("SOS Sent!");
+
+        document.getElementById("status").innerHTML="SOS Sent!";
+        document.getElementById("message").value="";
+
+    });
+}
+
+/* FETCH ALERTS */
+db.ref("alerts").on("value", function(snapshot){
+    var alerts = snapshot.val() || {};
+    document.getElementById("alerts").innerHTML="";
+
+    var count=0;
+
+    map.eachLayer(function(layer){
+        if(layer instanceof L.Marker) map.removeLayer(layer);
+    });
+
+    for(var key in alerts){
+        var a = alerts[key];
+        count++;
+
+        document.getElementById("alerts").innerHTML +=
+        `<div>
+            ${a.time}<br>
+            ${a.message}<br>
+            [${a.lat.toFixed(4)}, ${a.lon.toFixed(4)}]
+        </div>`;
+
+        L.marker([a.lat,a.lon]).addTo(map)
+        .bindPopup(a.message);
+    }
+
+    document.getElementById("count").innerHTML=count;
+});
+</script>
+
+</body>
+</html>
